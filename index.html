@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script language="javascript">
+    //simple letter matching game
+    //options:different fonts, cases, number of letters
+    //drag letters onto each other-- if they're the same top one gets eaten, bottom one stays the same, glows green.
+    //records errors as sets of two letters, order not important pq==qp, keep table of errors for session for review.
+    var counts={};
+var letters=(function(){
+    var fonts=["Verdana"];
+    var allLetters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
+    var lettersAvailable=localStorage.lettersAvailable || allLetters;
+    var options={letters:["lower"],
+                number:100,
+                selection:26,
+                fonts:{"Baskerville":1,"AmericanTypewriter":1,"ChalkboardSE-Regular":1,"Cochin-Italic":1,"Avenir-Black":1,"Verdana":1,"Courier":1,"Georgia":1,"TimesNewRomanPSMT":1,"Futura-Medium":1,"HelveticaNeue":1,"MarkerFelt-Thin":1,"Papyrus":1}
+            };
+    var main;
+    function init(){
+        main=document.getElementById("main");
+        document.getElementById("btnsettings").style.display="block";
+        document.getElementById("btnplay").style.display="none";
+        document.getElementById("main").style.display="block";
+        document.getElementById("settings").style.display="none";
+        //note can add event listener to functions cause init has access to them? but init doesn't have access to the object by name? argh no-- I was shadowing it!!
+        document.getElementById("btnsettings").addEventListener("click",settings);
+        document.getElementById("btnplay").addEventListener("click",play,false);
+        var html='';
+        for (var i=0;i<allLetters.length;i++){
+            html+='<div class="filter" id="'+allLetters[i]+'">'+allLetters[i]+'</div>';  
+        }
+        document.getElementById("settings").innerHTML=html;
+        for(i=0;i<allLetters.length;i++){
+            if (lettersAvailable.indexOf(allLetters[i])!=-1){
+                document.getElementById(allLetters[i]).style.backgroundColor="rgb(255, 255, 255)";
+            } else {
+                document.getElementById(allLetters[i]).style.backgroundColor="rgb(128, 128, 128)";
+            }
+        }
+        document.getElementById("settings").addEventListener("click",function(e){hideLetter(e);});
+        initgame();
+    }
+    function hideLetter(e){
+        var l;
+        if (e.target && allLetters.indexOf(e.target.id)!=-1){
+            l= document.getElementById(e.target.id);
+            if (l.style.backgroundColor=="rgb(128, 128, 128)"){
+                l.style.backgroundColor="rgb(255, 255, 255)";
+                lettersAvailable=lettersAvailable+e.target.id; //order irrelevant
+            } else {
+                l.style.backgroundColor="rgb(128, 128, 128)";
+                lettersAvailable=lettersAvailable.replace(e.target.id,'');
+            }
+        }
+    }
+    function findPos(obj){
+        var curleft=curtop=0;
+        do {
+            curleft+=obj.offsetLeft;
+            curtop+=obj.offsetTop;
+        } while (obj=obj.offsetParent);
+        return [curleft,curtop];
+    }
+    function removeLetter(id){
+        //remove event listener
+        //use in the addlistener      this.removeEventListener('click', arguments.callee);
+        
+        var d=window.setInterval(shrink(id),30);
+        function shrink(id){
+            var e=document.getElementById(id);
+            var s=window.getComputedStyle(e);
+            var posar=findPos(e);
+            console.log(posar);
+            e.style.height=s.height;
+            e.style.width=s.width;
+            e.style.top=posar[1]+"px";
+            e.style.left=posar[0]+"px";
+            e.style.position="absolute";
+            e.style.fontSize="100%";
+            e.style.zorder="10";
+            e.style.backgroundColor="rgb(0, 255, 0)";
+            return function(){
+                e.style.height=parseInt(e.style.height)-3+"px";    
+                e.style.width=parseInt(e.style.width)-3+"px";    
+                e.style.left=parseInt(e.style.left)+1+"px";    
+                e.style.top=parseInt(e.style.top)+1+"px";    
+                e.style.fontSize=parseInt(e.style.fontSize)-10+"%";
+                if (parseInt(e.style.height)<=3){
+                    document.getElementById("main").removeChild(e);
+                    window.clearInterval(d);
+                }
+            };
+        }
+    }
+    function initgame(){
+        //clear
+        counts={};
+        document.getElementById("main").innerHTML="";
+        for (var i=0;i<options.number;i++){
+            addLetter(i);
+        }
+    }
+    function checkDone(){
+        for(var l in counts){
+            if (counts[l]) return false;
+        }
+        return true;
+    }
+    function toggle(ar){
+        var i,elt;
+        for(i=0;i<ar.length;i++){
+            elt=document.getElementById(ar[i]);
+            if (elt.style.display=="block"){
+                elt.style.display="none";
+            } else {
+                elt.style.display="block";
+            }
+        }
+    }
+     function settings(){
+        toggle(["settings","btnplay","main","btnsettings"]);
+       
+    }
+    function play(){
+        localStorage.lettersAvailable=lettersAvailable;
+        initgame();
+        toggle(["settings","btnplay","main","btnsettings"]);
+    }
+    function addLetter(i){
+        //adds a letter to the field
+        var letter=lettersAvailable[parseInt(Math.random()*Math.min(options.selection,lettersAvailable.length))];
+        main.innerHTML+='<div class="letter" id="l'+i+'">'+letter+'</div> ';
+        document.getElementById('l'+i).style.fontFamily=fonts[parseInt(Math.random()*fonts.length)];
+        if (! ++counts[letter]){counts[letter]=0;}
+                
+    }
+    function d(){
+        return lettersAvailable;
+    }
+    return {init:init,
+        settings:settings,
+        play:play,
+        toggle:toggle,
+        removeLetter:removeLetter,
+        d:d
+       };
+   })();
+   document.addEventListener("DOMContentLoaded",letters.init);
+</script>
+<style>
+    div.filter { border: 1px solid grey;
+            margin:0.5ex;
+            float:left;
+            padding:0.5ex 1ex;
+            font-family:Courier;
+        }
+div.letter {border: 1px solid grey;
+            margin:0.5ex;
+            float:left;
+            border-radius:20px;
+            padding:0.5ex 1ex;
+            font-family:Courier;
+        }
+div.button {border-radius:12px;
+        border:1px solid grey;
+        padding:.5ex;
+        font-size:60%;
+        margin: 0ex auto;
+        width:30%;
+        text-align:center;
+        font-family:Verdana;
+    
+</style>
+</head>
+<body>
+    <div id="controls">
+        <div class="button" id="btnsettings">Settings</div>
+        <div class="button" id="btnplay">Play</div>
+    </div>
+    <div id="settings">Settings</div>
+    <div id="main">
+    </div>
+</body>
+</html>
+
