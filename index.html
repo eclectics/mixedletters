@@ -11,7 +11,7 @@
     //drag letters onto each other-- if they're the same top one gets eaten, bottom one stays the same, glows green.
     //records errors as sets of two letters, order not important pq==qp, keep table of errors for session for review.
     var counts={};
-    var cur={node:null,height:0}; //current node;
+    var cur={node:null,x:0,y:0}; //current node;
 var letters=(function(){
     var fonts=["Verdana"];
     var allLetters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
@@ -29,6 +29,8 @@ var letters=(function(){
     function init(){
         document.addEventListener("gesturechange",pd);
         document.addEventListener("gesturestart",pd);
+        document.addEventListener("touchmove",pd);
+        document.addEventListener("dragover",pd);
         main=document.getElementById("main");
         document.getElementById("btnsettings").style.display="block";
         document.getElementById("btnplay").style.display="none";
@@ -41,6 +43,7 @@ var letters=(function(){
         for (var i=0;i<allLetters.length;i++){
             html+='<div class="filter" id="'+allLetters[i]+'">'+allLetters[i]+'</div>';  
         }
+        html+='<div>Letters:<input type="text" pattern="[0-9]*" id="txtNum"/></div>';
         document.getElementById("settings").innerHTML=html;
         for(i=0;i<allLetters.length;i++){
             if (lettersAvailable.indexOf(allLetters[i])!=-1){
@@ -51,6 +54,9 @@ var letters=(function(){
         }
         document.getElementById("settings").addEventListener("click",function(e){hideLetter(e);});
         document.getElementById("main").addEventListener("touchstart",function(e){liftLetter(e);});
+        document.getElementById("main").addEventListener("touchmove",move);
+        document.getElementById("main").addEventListener("touchend",dropLetter);
+        document.getElementById("main").addEventListener("mouseup",ckLetter);
         initgame();
     }
     function hideLetter(e){
@@ -66,58 +72,20 @@ var letters=(function(){
             }
         }
     }
-    function findPos(obj){
-        //get current left/top, adjust to get centre of object
-        var curleft=curtop=0;
-        do {
-            curleft+=obj.offsetLeft;
-            curtop+=obj.offsetTop;
-        } while (obj=obj.offsetParent);
-
-        return {left:curleft,
-                top:curtop,
-        };
+    function ckLetter(e){
+        console.log(e);
     }
-    function pauseremove(e){
-
-        window.setTimeout(function(){document.getElementById("main").removeChild(e);},1000);
-    }
-    function removeLetter(id){
+    function removeLetter(e){
         //remove event listener
         //use in the addlistener      this.removeEventListener('click', arguments.callee);
         //css3 transitions
-        var e=document.getElementById(id);
+        counts[e.textContent]--;
+        e.style.background="-webkit-linear-gradient(white, red)";
         e.style.opacity=0;
-        e.style.webkitTransform='rotate(1080deg)';
-        pauseremove(e);
-       /* 
-        var d=window.setInterval(shrink(id),30);
-        function shrink(id){
-            var e=document.getElementById(id);
-            var s=window.getComputedStyle(e);
-            var pos=findPos(e);
-            console.log(pos);
-            e.style.height=s.height;
-            e.style.width=s.width;
-            e.style.top=pos.top+"px";
-            e.style.left=pos.left+"px";
-            e.style.position="absolute";
-            e.style.fontSize="100%";
-            e.style.zorder="10";
-            e.style.backgroundColor="rgb(0, 255, 0)";
-            return function(){
-                e.style.height=parseInt(e.style.height)-3+"px";    
-                e.style.width=parseInt(e.style.width)-3+"px";    
-                e.style.left=parseInt(e.style.left)+1+"px";    
-                e.style.top=parseInt(e.style.top)+1+"px";    
-                e.style.fontSize=parseInt(e.style.fontSize)-10+"%";
-                if (parseInt(e.style.height)<=3){
-                    document.getElementById("main").removeChild(e);
-                    window.clearInterval(d);
-                }
-            };
-        }
-        */
+        e.style.webkitTransitionProperty="opacity, -webkit-transform";
+        e.style.webkitTransitionDuration="1s,1s";
+        e.style.webkitTransform+=' rotate(270deg) scale(0.5,0.5)';
+        //was going to remove letters, but it makes it harder to play
     }
     function initgame(){
         //clear
@@ -167,83 +135,44 @@ var letters=(function(){
 
     function liftLetter(evt){
         //on mousedown or touch
-        console.log('lift');
         if (evt.target && evt.target.id!="main"){
             cur.node=document.getElementById(evt.target.id);
-/*
-            cur.height=Math.floor(parseInt(window.getComputedStyle(cur.node).height));
-            var pos=findPos(cur.node);
-            cur.node.style.backgroundColor="rgb(255, 0, 0)";
-            cur.node.style.top=pos.top+"px";
-            cur.node.style.left=pos.left+"px";
-            cur.node.style.position="absolute";
-            */
-            cur.node.style.zorder="10";
-            document.addEventListener("touchmove",move);
-            document.addEventListener("touchend",dropLetter);
+            cur.node.style.zIndex="10";
+            cur.x=cur.node.offsetLeft;
+            cur.y=cur.node.offsetTop;
+            cur.node.style.pointerEvents="none";
         }
 
     }
-    var move= function(evt){
+    function move(evt){
         evt.preventDefault();
-        console.log('move');
         if (evt.target && evt.target.id!="main"){
-        curX = evt.targetTouches[0].pageX - startX;
-        curY = evt.targetTouches[0].pageY - startY;
-        evt.targetTouches[0].target.style.webkitTransform =
+            curX = evt.targetTouches[0].pageX-evt.target.offsetLeft-25;
+            curY = evt.targetTouches[0].pageY-evt.target.offsetTop-25;
+            evt.targetTouches[0].target.style.webkitTransform =
             'translate(' + curX + 'px, ' + curY + 'px)';
-    }
+        }
     }
     function dropLetter(e){
         //on mouseup or release
         //check target
-        cur.node.style.position="";
-        cur.node.style.zorder="0";
-        cur.node=null;
-        cur.height=0;
-        document.removeEventListener("mousemove",move);
-        document.removeEventListener("mouseup",dropLetter);
-
-    }
-
-/*
-
-function drop(e){
-    var orig = e.originalEvent;  
-    var p=touchpoint(orig);
-    var l=$("#"+position+" div").length;
-    var d,f;
-    for (i=0;i<l;i++){
-        t=$("#"+position+" div").eq(i);
-        d=dim(t);
-        // $("#tty").val($("#tty").val()+p.left+',');
-        if (d.l<p.x && d.l+d.w>p.x && d.t<p.y &&d.t+d.h >p.y){ //is touchpoint within the word box
-            f=$("#floaty div").detach();
-            if (p.x < d.l+d.mx){
-                f.insertBefore(t);
+        var t=e.changedTouches[0];
+        var target=document.elementFromPoint(t.pageX,t.pageY); 
+        //console.log(target);
+        if (target.textContent==cur.node.textContent){
+            removeLetter(cur.node);
+            if (checkDone()){
+                alert('Done!');
             }
-            else {
-                f.insertAfter(t);
+            } else {
+                cur.node.style.pointerEvents="auto";
+                cur.node.style.webkitTransform='translate(0px, 0px)';
+                cur.node.style.zIndex="5";
+                cur.node=null;
             }
-            break;
-        }
+
     }
-    if ($("#floaty div").length){ //if not between existing, append to end
-//        f=$("#floaty div").detach();
-        $("#"+position).append($("#floaty div"));
-    }
-    if ( $("#"+position).text()===$("#wordlist").val().replace(/ /g,"")){
-        document.getElementById('yippee').play();
-    }
-}
-    
-	
-    $("#source > div").bind("touchstart", lift);  
-    $("#source > div").bind("touchmove", move);  
-    $("#source > div").bind("touchend", drop);  
-    
-    
-*/
+
     return {init:init,
         settings:settings,
         play:play,
@@ -263,6 +192,7 @@ div.filter { border: 1px solid grey;
             padding:0.5ex 1ex;
             font-family:Courier;
         }
+
 div.letter {border: 1px solid grey;
             margin:0.5ex;
             float:left;
@@ -271,8 +201,7 @@ div.letter {border: 1px solid grey;
             font-family:Courier;
             -webkit-tap-highlight-color:#F00;
             background: -webkit-linear-gradient(white, aqua);
-            -webkit-transition-property:opacity, -webkit-transform;
-            -webkit-transition-duration: 1s,1s;
+            z-index:5;
         }
 div.button {border-radius:12px;
         border:1px solid grey;
