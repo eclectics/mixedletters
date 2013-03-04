@@ -1,23 +1,34 @@
 <!DOCTYPE html>
 <html>
-<head>
-<script language="javascript">
+    <head>
+        <meta name="viewport" content="width=device-width" content="user-scalable=no">
+        <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="white" />
+        <script language="javascript">
     //simple letter matching game
     //options:different fonts, cases, number of letters
     //drag letters onto each other-- if they're the same top one gets eaten, bottom one stays the same, glows green.
     //records errors as sets of two letters, order not important pq==qp, keep table of errors for session for review.
     var counts={};
+    var cur={node:null,height:0}; //current node;
 var letters=(function(){
     var fonts=["Verdana"];
     var allLetters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
     var lettersAvailable=localStorage.lettersAvailable || allLetters;
     var options={letters:["lower"],
-                number:100,
+                number:50,
                 selection:26,
                 fonts:{"Baskerville":1,"AmericanTypewriter":1,"ChalkboardSE-Regular":1,"Cochin-Italic":1,"Avenir-Black":1,"Verdana":1,"Courier":1,"Georgia":1,"TimesNewRomanPSMT":1,"Futura-Medium":1,"HelveticaNeue":1,"MarkerFelt-Thin":1,"Papyrus":1}
             };
     var main;
+    function pd(e){
+        e.preventDefault();
+    }
+
     function init(){
+        document.addEventListener("gesturechange",pd);
+        document.addEventListener("gesturestart",pd);
         main=document.getElementById("main");
         document.getElementById("btnsettings").style.display="block";
         document.getElementById("btnplay").style.display="none";
@@ -39,6 +50,7 @@ var letters=(function(){
             }
         }
         document.getElementById("settings").addEventListener("click",function(e){hideLetter(e);});
+        document.getElementById("main").addEventListener("touchstart",function(e){liftLetter(e);});
         initgame();
     }
     function hideLetter(e){
@@ -55,27 +67,40 @@ var letters=(function(){
         }
     }
     function findPos(obj){
+        //get current left/top, adjust to get centre of object
         var curleft=curtop=0;
         do {
             curleft+=obj.offsetLeft;
             curtop+=obj.offsetTop;
         } while (obj=obj.offsetParent);
-        return [curleft,curtop];
+
+        return {left:curleft,
+                top:curtop,
+        };
+    }
+    function pauseremove(e){
+
+        window.setTimeout(function(){document.getElementById("main").removeChild(e);},1000);
     }
     function removeLetter(id){
         //remove event listener
         //use in the addlistener      this.removeEventListener('click', arguments.callee);
-        
+        //css3 transitions
+        var e=document.getElementById(id);
+        e.style.opacity=0;
+        e.style.webkitTransform='rotate(1080deg)';
+        pauseremove(e);
+       /* 
         var d=window.setInterval(shrink(id),30);
         function shrink(id){
             var e=document.getElementById(id);
             var s=window.getComputedStyle(e);
-            var posar=findPos(e);
-            console.log(posar);
+            var pos=findPos(e);
+            console.log(pos);
             e.style.height=s.height;
             e.style.width=s.width;
-            e.style.top=posar[1]+"px";
-            e.style.left=posar[0]+"px";
+            e.style.top=pos.top+"px";
+            e.style.left=pos.left+"px";
             e.style.position="absolute";
             e.style.fontSize="100%";
             e.style.zorder="10";
@@ -92,6 +117,7 @@ var letters=(function(){
                 }
             };
         }
+        */
     }
     function initgame(){
         //clear
@@ -130,7 +156,7 @@ var letters=(function(){
     function addLetter(i){
         //adds a letter to the field
         var letter=lettersAvailable[parseInt(Math.random()*Math.min(options.selection,lettersAvailable.length))];
-        main.innerHTML+='<div class="letter" id="l'+i+'">'+letter+'</div> ';
+        main.innerHTML+='<div class="letter" id="l'+i+'" onclick="void(0);">'+letter+'</div> ';
         document.getElementById('l'+i).style.fontFamily=fonts[parseInt(Math.random()*fonts.length)];
         if (! ++counts[letter]){counts[letter]=0;}
                 
@@ -138,6 +164,86 @@ var letters=(function(){
     function d(){
         return lettersAvailable;
     }
+
+    function liftLetter(evt){
+        //on mousedown or touch
+        console.log('lift');
+        if (evt.target && evt.target.id!="main"){
+            cur.node=document.getElementById(evt.target.id);
+/*
+            cur.height=Math.floor(parseInt(window.getComputedStyle(cur.node).height));
+            var pos=findPos(cur.node);
+            cur.node.style.backgroundColor="rgb(255, 0, 0)";
+            cur.node.style.top=pos.top+"px";
+            cur.node.style.left=pos.left+"px";
+            cur.node.style.position="absolute";
+            */
+            cur.node.style.zorder="10";
+            document.addEventListener("touchmove",move);
+            document.addEventListener("touchend",dropLetter);
+        }
+
+    }
+    var move= function(evt){
+        evt.preventDefault();
+        console.log('move');
+        if (evt.target && evt.target.id!="main"){
+        curX = evt.targetTouches[0].pageX - startX;
+        curY = evt.targetTouches[0].pageY - startY;
+        evt.targetTouches[0].target.style.webkitTransform =
+            'translate(' + curX + 'px, ' + curY + 'px)';
+    }
+    }
+    function dropLetter(e){
+        //on mouseup or release
+        //check target
+        cur.node.style.position="";
+        cur.node.style.zorder="0";
+        cur.node=null;
+        cur.height=0;
+        document.removeEventListener("mousemove",move);
+        document.removeEventListener("mouseup",dropLetter);
+
+    }
+
+/*
+
+function drop(e){
+    var orig = e.originalEvent;  
+    var p=touchpoint(orig);
+    var l=$("#"+position+" div").length;
+    var d,f;
+    for (i=0;i<l;i++){
+        t=$("#"+position+" div").eq(i);
+        d=dim(t);
+        // $("#tty").val($("#tty").val()+p.left+',');
+        if (d.l<p.x && d.l+d.w>p.x && d.t<p.y &&d.t+d.h >p.y){ //is touchpoint within the word box
+            f=$("#floaty div").detach();
+            if (p.x < d.l+d.mx){
+                f.insertBefore(t);
+            }
+            else {
+                f.insertAfter(t);
+            }
+            break;
+        }
+    }
+    if ($("#floaty div").length){ //if not between existing, append to end
+//        f=$("#floaty div").detach();
+        $("#"+position).append($("#floaty div"));
+    }
+    if ( $("#"+position).text()===$("#wordlist").val().replace(/ /g,"")){
+        document.getElementById('yippee').play();
+    }
+}
+    
+	
+    $("#source > div").bind("touchstart", lift);  
+    $("#source > div").bind("touchmove", move);  
+    $("#source > div").bind("touchend", drop);  
+    
+    
+*/
     return {init:init,
         settings:settings,
         play:play,
@@ -149,7 +255,9 @@ var letters=(function(){
    document.addEventListener("DOMContentLoaded",letters.init);
 </script>
 <style>
-    div.filter { border: 1px solid grey;
+    body {-webkit-text-size-adjust:200%;
+    }
+div.filter { border: 1px solid grey;
             margin:0.5ex;
             float:left;
             padding:0.5ex 1ex;
@@ -161,6 +269,10 @@ div.letter {border: 1px solid grey;
             border-radius:20px;
             padding:0.5ex 1ex;
             font-family:Courier;
+            -webkit-tap-highlight-color:#F00;
+            background: -webkit-linear-gradient(white, aqua);
+            -webkit-transition-property:opacity, -webkit-transform;
+            -webkit-transition-duration: 1s,1s;
         }
 div.button {border-radius:12px;
         border:1px solid grey;
@@ -170,7 +282,7 @@ div.button {border-radius:12px;
         width:30%;
         text-align:center;
         font-family:Verdana;
-    
+    } 
 </style>
 </head>
 <body>
