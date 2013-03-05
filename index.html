@@ -1,85 +1,108 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta name="viewport" content="width=device-width" content="user-scalable=no">
-        <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="white" />
-        <script language="javascript">
-    //simple letter matching game
-    //options:different fonts, cases, number of letters
-    //drag letters onto each other-- if they're the same top one gets eaten, bottom one stays the same, glows green.
-    //records errors as sets of two letters, order not important pq==qp, keep table of errors for session for review.
+<head>
+    <meta name="viewport" content="width=device-width" content="user-scalable=no">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="white" />
+    <script language="javascript">
+/*
+Mixed Letters
+Gregor McNish 2013, licenced Creative Commons with attribution
+http://applied-eclectics.org/
+
+This is a simple letter matching game
+options:different fonts, cases, number of letters
+drag letters onto each other-- if they're the same top one gets eaten, bottom one stays the same, glows green.
+records errors as sets of two letters, order not important pq==qp, keep table of errors for session for review.
+
+todo
+fonts-- if choose multiple fonts, line widths and floats get stuffed up. do we need floats?
+odd bug, sometimes everything goes down the pipe-- ie remove letter removes entire scren
+local cache
+work on browsers and local
+
+*/
+
     var counts={};
-    var cur={node:null,x:0,y:0}; //current node;
 var letters=(function(){
-    var fonts=["Verdana"];
+    var main;
     var allLetters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
     var lettersAvailable=localStorage.lettersAvailable || allLetters;
-    var options={letters:["lower"],
-                number:50,
-                selection:26,
-                fonts:{"Baskerville":1,"AmericanTypewriter":1,"ChalkboardSE-Regular":1,"Cochin-Italic":1,"Avenir-Black":1,"Verdana":1,"Courier":1,"Georgia":1,"TimesNewRomanPSMT":1,"Futura-Medium":1,"HelveticaNeue":1,"MarkerFelt-Thin":1,"Papyrus":1}
-            };
-    var main;
+    var fontsAvailable=["Courier","Verdana","Baskerville","AmericanTypewriter","ChalkboardSE-Regular","Cochin-Italic","Avenir-Black","Georgia","TimesNewRomanPSMT","Futura-Medium","HelveticaNeue","MarkerFelt-Thin","Papyrus"];
+    if (typeof localStorage.options=="undefined"){
+        localStorage.options= JSON.stringify(
+                {letters:["lower"],
+                    number:50,
+                    selection:26,
+                    lcuc:1,
+                    fonts:[4]
+                });
+    }
+    var options=JSON.parse(localStorage.options);
+
     function pd(e){
         e.preventDefault();
     }
 
     function init(){
+        //prevent touches from scrolling or zooming the window
         document.addEventListener("gesturechange",pd);
         document.addEventListener("gesturestart",pd);
         document.addEventListener("touchmove",pd);
         document.addEventListener("dragover",pd);
+
+        //interface initial styling, hide/show
         main=document.getElementById("main");
         document.getElementById("btnsettings").style.display="block";
         document.getElementById("btnplay").style.display="none";
-        document.getElementById("main").style.display="block";
+        main.style.display="block";
         document.getElementById("settings").style.display="none";
-        //note can add event listener to functions cause init has access to them? but init doesn't have access to the object by name? argh no-- I was shadowing it!!
-        document.getElementById("btnsettings").addEventListener("click",settings);
-        document.getElementById("btnplay").addEventListener("click",play,false);
         var html='';
+        //set up settings
         for (var i=0;i<allLetters.length;i++){
             html+='<div class="filter" id="'+allLetters[i]+'">'+allLetters[i]+'</div>';  
         }
-        html+='<div>Letters:<input type="text" pattern="[0-9]*" id="txtNum"/></div>';
-        document.getElementById("settings").innerHTML=html;
+        document.getElementById("chooseLetters").innerHTML=html+'<br style="clear:both"/>';
+        document.getElementById("selnum").value=(options.number);
+        document.getElementById("lcuc").value=(options.lcuc);
+        for(i=0;i<fontsAvailable.length;i++){
+            document.getElementById("selfont").innerHTML+='<option value="'+i+'">'+fontsAvailable[i]+'</option>';
+        }
+        document.getElementById("selfont").value=options.fonts[0];
+
         for(i=0;i<allLetters.length;i++){
             if (lettersAvailable.indexOf(allLetters[i])!=-1){
                 document.getElementById(allLetters[i]).style.backgroundColor="rgb(255, 255, 255)";
             } else {
-                document.getElementById(allLetters[i]).style.backgroundColor="rgb(128, 128, 128)";
+                document.getElementById(allLetters[i]).style.backgroundColor="rgb(200, 200, 200)";
             }
         }
-        document.getElementById("settings").addEventListener("click",function(e){hideLetter(e);});
-        document.getElementById("main").addEventListener("touchstart",function(e){liftLetter(e);});
+        document.getElementById("btnsettings").addEventListener("touchend",settings);
+        document.getElementById("btnplay").addEventListener("touchend",play);
+        document.getElementById("chooseLetters").addEventListener("touchend",hideLetter);
+        //Main interfase events
+        document.getElementById("main").addEventListener("touchstart",liftLetter);
         document.getElementById("main").addEventListener("touchmove",move);
         document.getElementById("main").addEventListener("touchend",dropLetter);
-        document.getElementById("main").addEventListener("mouseup",ckLetter);
         initgame();
     }
     function hideLetter(e){
         var l;
         if (e.target && allLetters.indexOf(e.target.id)!=-1){
             l= document.getElementById(e.target.id);
-            if (l.style.backgroundColor=="rgb(128, 128, 128)"){
+            if (l.style.backgroundColor=="rgb(200, 200, 200)"){
                 l.style.backgroundColor="rgb(255, 255, 255)";
                 lettersAvailable=lettersAvailable+e.target.id; //order irrelevant
             } else {
-                l.style.backgroundColor="rgb(128, 128, 128)";
+                l.style.backgroundColor="rgb(200, 200, 200)";
                 lettersAvailable=lettersAvailable.replace(e.target.id,'');
             }
         }
     }
-    function ckLetter(e){
-        console.log(e);
-    }
     function removeLetter(e){
-        //remove event listener
-        //use in the addlistener      this.removeEventListener('click', arguments.callee);
         //css3 transitions
-        counts[e.textContent]--;
+        counts[lvalue(e.textContent)]--;
         e.style.background="-webkit-linear-gradient(white, red)";
         e.style.opacity=0;
         e.style.webkitTransitionProperty="opacity, -webkit-transform";
@@ -90,6 +113,7 @@ var letters=(function(){
     function initgame(){
         //clear
         counts={};
+        document.getElementById("hurray").style.webkitTransform='scale(1,1) rotate(0deg)';
         document.getElementById("main").innerHTML="";
         for (var i=0;i<options.number;i++){
             addLetter(i);
@@ -117,6 +141,10 @@ var letters=(function(){
        
     }
     function play(){
+        options.number=document.getElementById("selnum").value;
+        options.lcuc=document.getElementById("lcuc").value;
+        options.fonts[0]=document.getElementById("selfont").value;
+        localStorage.options=JSON.stringify(options);
         localStorage.lettersAvailable=lettersAvailable;
         initgame();
         toggle(["settings","btnplay","main","btnsettings"]);
@@ -125,22 +153,23 @@ var letters=(function(){
         //adds a letter to the field
         var letter=lettersAvailable[parseInt(Math.random()*Math.min(options.selection,lettersAvailable.length))];
         main.innerHTML+='<div class="letter" id="l'+i+'" onclick="void(0);">'+letter+'</div> ';
-        document.getElementById('l'+i).style.fontFamily=fonts[parseInt(Math.random()*fonts.length)];
-        if (! ++counts[letter]){counts[letter]=0;}
+        var font=options.fonts[parseInt(Math.random()*options.fonts.length)];
+        document.getElementById('l'+i).style.fontFamily=fontsAvailable[font];
+        if (typeof counts[lvalue(letter)]=="undefined"){
+                counts[lvalue(letter)]=0;
+            } else {
+                counts[lvalue(letter)]++;
+            }
                 
-    }
-    function d(){
-        return lettersAvailable;
     }
 
     function liftLetter(evt){
         //on mousedown or touch
+        var e;
         if (evt.target && evt.target.id!="main"){
-            cur.node=document.getElementById(evt.target.id);
-            cur.node.style.zIndex="10";
-            cur.x=cur.node.offsetLeft;
-            cur.y=cur.node.offsetTop;
-            cur.node.style.pointerEvents="none";
+            e=document.getElementById(evt.target.id);
+            e.style.zIndex="10";
+            e.style.pointerEvents="none";
         }
 
     }
@@ -153,32 +182,45 @@ var letters=(function(){
             'translate(' + curX + 'px, ' + curY + 'px)';
         }
     }
+    function lvalue(l){
+        //"0" vs 0 truthiness
+        if (typeof l =="string" && l.length==1) return parseInt(options.lcuc)?l.toLowerCase():l;
+        return l;
+    }
+
     function dropLetter(e){
         //on mouseup or release
         //check target
-        var t=e.changedTouches[0];
-        var target=document.elementFromPoint(t.pageX,t.pageY); 
-        //console.log(target);
-        if (target.textContent==cur.node.textContent){
-            removeLetter(cur.node);
-            if (checkDone()){
-                alert('Done!');
-            }
-            } else {
-                cur.node.style.pointerEvents="auto";
-                cur.node.style.webkitTransform='translate(0px, 0px)';
-                cur.node.style.zIndex="5";
-                cur.node=null;
-            }
+        var t,target,i;
+        for (i=0;i<e.changedTouches.length;i++){ //in case actual simultaenous release!
+            t=e.changedTouches[i];
+            target=document.elementFromPoint(t.pageX,t.pageY); 
+            if (lvalue(target.textContent)==lvalue(t.target.textContent)){
+                removeLetter(t.target);
+                if (checkDone()){
+                    hurray();
+                }
+                } else {
+                    t.target.style.pointerEvents="auto";
+                    t.target.style.webkitTransform='translate(0px, 0px)';
+                    t.target.style.zIndex="5";
+                    t.target=null;
+                }
+        }
 
     }
-
+    function hurray(){
+        var e=document.getElementById("hurray");
+        e.style.webkitTransitionProperty="-webkit-transform";
+        e.style.opacity="1";
+        e.style.webkitTransitionDuration="1s";
+        e.style.webkitTransform='scale(5,5) rotate(720deg)';
+        window.setTimeout(function(){
+            e.style.opacity="0";
+            initgame();
+        },2200);
+    }
     return {init:init,
-        settings:settings,
-        play:play,
-        toggle:toggle,
-        removeLetter:removeLetter,
-        d:d
        };
    })();
    document.addEventListener("DOMContentLoaded",letters.init);
@@ -186,24 +228,27 @@ var letters=(function(){
 <style>
     body {-webkit-text-size-adjust:200%;
     }
+    div#main {overflow:auto;
+        width:100%;
+    }
 div.filter { border: 1px solid grey;
             margin:0.5ex;
             float:left;
             padding:0.5ex 1ex;
             font-family:Courier;
+            -webkit-text-size-adjust:150%;
         }
 
 div.letter {border: 1px solid grey;
-            margin:0.5ex;
+            margin:10px;
             float:left;
-            border-radius:20px;
-            padding:0.5ex 1ex;
-            font-family:Courier;
+            border-radius:15px;
+            padding:5px 10px;
             -webkit-tap-highlight-color:#F00;
             background: -webkit-linear-gradient(white, aqua);
             z-index:5;
         }
-div.button {border-radius:12px;
+input[type="button"] {border-radius:12px;
         border:1px solid grey;
         padding:.5ex;
         font-size:60%;
@@ -212,14 +257,39 @@ div.button {border-radius:12px;
         text-align:center;
         font-family:Verdana;
     } 
+div#hurray {
+    position:absolute;
+    top:35%;
+    left:0%;
+    opacity:0;
+    width:100%;
+    font-size:100%;
+    text-align:center;
+    z-index:20;
+    font-family:AppleColorEmoji;
+}
 </style>
 </head>
 <body>
     <div id="controls">
-        <div class="button" id="btnsettings">Settings</div>
-        <div class="button" id="btnplay">Play</div>
+        <input type="button"  id="btnsettings" value="Settings"/>
+        <input type="button"  id="btnplay" value="Play"/>
     </div>
-    <div id="settings">Settings</div>
+        <div id="hurray">&#xE057;</div>
+    <div id="settings">
+        <div id="chooseLetters"></div>
+        <div id="options">
+            How many letters: <select id="selnum" value="20">
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
+            </select><br/>
+            Fonts: <select id="selfont"></select><br/>
+            lower case <select id="lcuc"><option value="0">not equals</option><option value="1">equals</option></select> upper case 
+        </div>
+    </div>
     <div id="main">
     </div>
 </body>
