@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html manifest="letters.manifest">
 <head>
     <meta name="viewport" content="width=device-width" content="user-scalable=no">
     <link rel="apple-touch-icon" href="apple-touch-icon.png"/>
@@ -24,9 +24,9 @@ work on browsers and local
 
 */
 
-    var counts={};
 var letters=(function(){
     var main;
+    var counts={};
     var allLetters="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"; 
     var lettersAvailable=localStorage.lettersAvailable || allLetters;
     var fontsAvailable=["Courier","Verdana","Baskerville","AmericanTypewriter","ChalkboardSE-Regular","Cochin-Italic","Avenir-Black","Georgia","TimesNewRomanPSMT","Futura-Medium","HelveticaNeue","MarkerFelt-Thin","Papyrus"];
@@ -195,7 +195,7 @@ var letters=(function(){
         for (i=0;i<e.changedTouches.length;i++){ //in case actual simultaenous release!
             t=e.changedTouches[i];
             target=document.elementFromPoint(t.pageX,t.pageY); 
-            if (lvalue(target.textContent)==lvalue(t.target.textContent)){
+            if (target.textContent.length==1 && lvalue(target.textContent)==lvalue(t.target.textContent)){
                 removeLetter(t.target);
                 if (checkDone()){
                     hurray();
@@ -228,8 +228,9 @@ var letters=(function(){
 <style>
     body {-webkit-text-size-adjust:200%;
     }
-    div#main {overflow:auto;
+    div#main {
         width:100%;
+        height:100%;
     }
 div.filter { border: 1px solid grey;
             margin:0.5ex;
